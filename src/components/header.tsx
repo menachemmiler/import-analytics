@@ -1,5 +1,4 @@
-"use client";
-
+import Link from "next/link";
 import { Globe, LayoutDashboard, LogOut } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { UserSession } from "@/lib/types";
@@ -7,7 +6,13 @@ import { useLanguage } from "./language-provider";
 
 function GoogleMark() {
   return (
-    <svg viewBox="0 0 24 24" className="size-4" aria-hidden>
+    <svg
+      viewBox="0 0 24 24"
+      width={16}
+      height={16}
+      className="size-4"
+      aria-hidden="true"
+    >
       <path
         fill="#4285F4"
         d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1Z"
@@ -38,19 +43,26 @@ export function Header({ user, onSignIn, onSignOut }: HeaderProps) {
   const { t, locale, setLocale, dir } = useLanguage();
 
   const nav = [
-    { href: "#dashboard", label: t("navDashboard") },
-    { href: "#calculator", label: t("navCalculator") },
-    { href: "#retailers", label: t("navMarket") },
-    { href: "#suppliers", label: t("navSuppliers") },
-    { href: "#brokers", label: t("navBrokers") },
+    { href: "/#dashboard", label: t("navDashboard") },
+    { href: "/calculator", label: t("navCalculator") },
+    { href: "/#market-tabs", label: t("navMarket") },
   ];
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-slate-950/80 backdrop-blur-xl">
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:start-4 focus:top-3 focus:z-[60] focus:rounded-lg focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-slate-900"
+      >
+        {t("skipToContent")}
+      </a>
       <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3 sm:px-6">
-        <a href="#top" className="flex min-w-0 items-center gap-3">
+        <Link href="/" className="flex min-w-0 items-center gap-3">
           <span className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-emerald-400 shadow-lg shadow-blue-500/20">
-            <LayoutDashboard className="size-5 text-slate-950" />
+            <LayoutDashboard
+              className="size-5 text-slate-950"
+              aria-hidden="true"
+            />
           </span>
           <span className="min-w-0">
             <span className="block truncate text-sm font-semibold tracking-tight text-white">
@@ -60,17 +72,20 @@ export function Header({ user, onSignIn, onSignOut }: HeaderProps) {
               {t("brandSub")}
             </span>
           </span>
-        </a>
+        </Link>
 
-        <nav className="ms-auto hidden items-center gap-1 lg:flex">
+        <nav
+          className="ms-auto hidden items-center gap-1 lg:flex"
+          aria-label={t("brand")}
+        >
           {nav.map((item) => (
-            <a
+            <Link
               key={item.href}
               href={item.href}
               className="rounded-lg px-3 py-1.5 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white"
             >
               {item.label}
-            </a>
+            </Link>
           ))}
         </nav>
 
@@ -78,9 +93,9 @@ export function Header({ user, onSignIn, onSignOut }: HeaderProps) {
           <div
             className="flex items-center rounded-full border border-white/10 bg-slate-900 p-0.5"
             role="group"
-            aria-label="Language"
+            aria-label={t("langHe") + " / " + t("langEn")}
           >
-            <Globe className="mx-2 size-3.5 text-slate-500" />
+            <Globe className="mx-2 size-3.5 text-slate-500" aria-hidden="true" />
             <button
               type="button"
               onClick={() => setLocale("he")}
@@ -126,7 +141,7 @@ export function Header({ user, onSignIn, onSignOut }: HeaderProps) {
                 aria-label={t("signOut")}
                 title={t("signOut")}
               >
-                <LogOut className="size-3.5" />
+                <LogOut className="size-3.5" aria-hidden="true" />
               </button>
             </div>
           ) : (

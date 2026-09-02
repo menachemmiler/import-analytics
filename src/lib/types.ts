@@ -8,13 +8,15 @@ export type UserSession = {
 
 export type StockStatus = "in_stock" | "low" | "out";
 
-export type Retailer = {
+export type LocalStore = {
   id: string;
   name: string;
   city: string;
   priceIls: number;
   stock: StockStatus;
   channel: string;
+  url: string;
+  directLink?: string;
 };
 
 export type Supplier = {
@@ -26,9 +28,11 @@ export type Supplier = {
   leadDays: number;
   email: string;
   verified: boolean;
+  url: string;
+  directLink?: string;
 };
 
-export type Broker = {
+export type FreightForwarder = {
   id: string;
   name: string;
   specialty: string;
@@ -42,34 +46,35 @@ export type MonthlyVolume = {
   units: number;
 };
 
-export type CostSlice = {
-  name: string;
-  value: number;
-  fill: string;
+export type AnalyzeRequest = {
+  productName?: string;
+  locale?: Locale;
+  hasImage?: boolean;
 };
 
 export type AnalysisResult = {
+  source: "mock" | "openai+mock" | "gemini+mock";
   productName: string;
   brand: string;
   hsCode: string;
   origin: string;
-  kpis: {
-    totalUnits: number;
-    unitsDelta: number;
-    activeImporters: number;
-    customsIls: number;
-    vatIls: number;
-    dutyRate: number;
-    vatRate: number;
-    estimatedRoi: number;
-  };
-  retailers: Retailer[];
+  estimatedFobUsd: number;
+  customsRatePercent: number;
+  activeImportersCount: number;
+  estimatedRoiPercent: number;
+  totalUnitsImported: number;
+  unitsDeltaPercent: number;
+  customsIls: number;
+  vatIls: number;
+  vatRatePercent: number;
+  localStores: LocalStore[];
   suppliers: Supplier[];
-  brokers: Broker[];
-  volume: MonthlyVolume[];
+  freightForwarders: FreightForwarder[];
+  importTrend: MonthlyVolume[];
+  imageUrl: string;
   defaults: {
     purchaseUsd: number;
-    shippingUsd: number;
+    freightUsd: number;
     customsPct: number;
     localFeesIls: number;
     targetRetailIls: number;

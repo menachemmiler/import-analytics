@@ -1,5 +1,3 @@
-"use client";
-
 import {
   BadgePercent,
   Landmark,
@@ -10,24 +8,24 @@ import {
 import { formatIls, formatInt, formatPct } from "@/lib/mock-data";
 import type { AnalysisResult } from "@/lib/types";
 import { useLanguage } from "./language-provider";
+import { ProductPhoto } from "./product-photo";
 
 export function KpiCards({ analysis }: { analysis: AnalysisResult }) {
   const { t, locale } = useLanguage();
-  const { kpis } = analysis;
-  const up = kpis.unitsDelta >= 0;
+  const up = analysis.unitsDeltaPercent >= 0;
 
   const cards = [
     {
       label: t("kpiUnits"),
-      value: formatInt(kpis.totalUnits, locale),
+      value: formatInt(analysis.totalUnitsImported, locale),
       hint: t("last36"),
-      delta: `${up ? "+" : ""}${kpis.unitsDelta.toFixed(1)}% ${t("vsPrior")}`,
+      delta: `${up ? "+" : ""}${analysis.unitsDeltaPercent.toFixed(1)}% ${t("vsPrior")}`,
       icon: Package,
       tone: "from-blue-500/20 to-blue-500/5 text-blue-300",
     },
     {
       label: t("kpiImporters"),
-      value: formatInt(kpis.activeImporters, locale),
+      value: formatInt(analysis.activeImportersCount, locale),
       hint: analysis.origin,
       delta: `${t("hsCode")} ${analysis.hsCode}`,
       icon: Users,
@@ -35,32 +33,40 @@ export function KpiCards({ analysis }: { analysis: AnalysisResult }) {
     },
     {
       label: t("kpiTax"),
-      value: formatIls(kpis.customsIls + kpis.vatIls, locale),
-      hint: `${t("customs")} ${formatIls(kpis.customsIls, locale)} · ${t("vat")} ${formatIls(kpis.vatIls, locale)}`,
-      delta: `${t("customs")} ${formatPct(kpis.dutyRate, locale)} · ${t("vat")} ${formatPct(kpis.vatRate, locale, 0)}`,
+      value: formatIls(analysis.customsIls + analysis.vatIls, locale),
+      hint: `${t("customs")} ${formatIls(analysis.customsIls, locale)} · ${t("vat")} ${formatIls(analysis.vatIls, locale)}`,
+      delta: `${t("customs")} ${formatPct(analysis.customsRatePercent, locale)} · ${t("vat")} ${formatPct(analysis.vatRatePercent, locale, 0)}`,
       icon: Landmark,
       tone: "from-sky-500/20 to-sky-500/5 text-sky-300",
     },
     {
       label: t("kpiRoi"),
-      value: formatPct(kpis.estimatedRoi, locale),
+      value: formatPct(analysis.estimatedRoiPercent, locale),
       hint: t("perUnit"),
-      delta: analysis.productName,
-      icon: kpis.estimatedRoi >= 20 ? TrendingUp : BadgePercent,
+      delta: `FOB ${formatInt(analysis.estimatedFobUsd, locale)} $`,
+      icon: analysis.estimatedRoiPercent >= 20 ? TrendingUp : BadgePercent,
       tone:
-        kpis.estimatedRoi >= 20
+        analysis.estimatedRoiPercent >= 20
           ? "from-emerald-400/25 to-emerald-500/5 text-emerald-300"
           : "from-amber-500/20 to-amber-500/5 text-amber-300",
     },
   ];
 
   return (
-    <section id="dashboard" className="mx-auto max-w-7xl px-4 sm:px-6">
-      <p className="mb-4 text-sm text-slate-400">
-        {t("analysisFor")}{" "}
-        <span className="font-medium text-white">{analysis.productName}</span>
-        <span className="text-slate-500"> · {analysis.brand}</span>
-      </p>
+    <section id="dashboard" aria-labelledby="analysis-heading" className="mx-auto max-w-7xl px-4 sm:px-6">
+      <div className="mb-4 flex items-center gap-3">
+        <ProductPhoto
+          src={analysis.imageUrl}
+          alt={analysis.productName}
+          overlay={false}
+          className="size-14 shrink-0 rounded-xl"
+        />
+        <h2 id="analysis-heading" className="text-sm text-slate-400">
+          {t("analysisFor")}{" "}
+          <span className="font-medium text-white">{analysis.productName}</span>
+          <span className="text-slate-500"> · {analysis.brand}</span>
+        </h2>
+      </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {cards.map((card) => {
           const Icon = card.icon;
@@ -71,7 +77,7 @@ export function KpiCards({ analysis }: { analysis: AnalysisResult }) {
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs font-medium text-slate-400">{card.label}</p>
+                  <h3 className="text-xs font-medium text-slate-400">{card.label}</h3>
                   <p className="mt-2 text-2xl font-semibold tracking-tight text-white">
                     {card.value}
                   </p>
@@ -79,7 +85,7 @@ export function KpiCards({ analysis }: { analysis: AnalysisResult }) {
                 <span
                   className={`flex size-10 items-center justify-center rounded-xl bg-gradient-to-br ${card.tone}`}
                 >
-                  <Icon className="size-5" />
+                  <Icon className="size-5" aria-hidden="true" />
                 </span>
               </div>
               <p className="mt-3 text-xs text-slate-500">{card.hint}</p>

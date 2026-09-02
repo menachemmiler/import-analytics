@@ -1,25 +1,32 @@
-"use client";
-
 import { useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from "react";
 import { ImagePlus, Loader2, Sparkles, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useLanguage } from "./language-provider";
+import { ProductPhoto } from "./product-photo";
 
 type HeroSearchProps = {
   query: string;
   onQueryChange: (value: string) => void;
-  previewUrl: string | null;
+  imageUrl: string | null;
+  productName: string;
+  imageLoading: boolean;
   onFile: (file: File | null) => void;
+  canClear?: boolean;
   loading: boolean;
+  error: string | null;
   onAnalyze: () => void;
 };
 
 export function HeroSearch({
   query,
   onQueryChange,
-  previewUrl,
+  imageUrl,
+  productName,
+  imageLoading,
   onFile,
+  canClear = false,
   loading,
+  error,
   onAnalyze,
 }: HeroSearchProps) {
   const { t } = useLanguage();
@@ -49,6 +56,8 @@ export function HeroSearch({
     e.preventDefault();
     onAnalyze();
   }
+
+  const hasPreview = Boolean(imageUrl) || imageLoading;
 
   return (
     <section id="top" className="relative overflow-hidden">
@@ -90,29 +99,31 @@ export function HeroSearch({
               className="sr-only"
               onChange={onSelect}
             />
-            {previewUrl ? (
+            {hasPreview ? (
               <>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={previewUrl}
-                  alt=""
-                  className="absolute inset-0 size-full object-cover opacity-80"
+                <ProductPhoto
+                  src={imageUrl}
+                  alt={productName.trim() || query.trim() || t("dropTitle")}
+                  loading={imageLoading}
+                  className="absolute inset-0 size-full"
                 />
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onFile(null);
-                  }}
-                  className="absolute end-3 top-3 z-10 rounded-full bg-slate-950/80 p-1.5 text-white hover:bg-slate-800"
-                  aria-label={t("removeImage")}
-                >
-                  <X className="size-4" />
-                </button>
+                {canClear && imageUrl && !imageLoading ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onFile(null);
+                    }}
+                    className="absolute end-3 top-3 z-10 rounded-full bg-slate-950/80 p-1.5 text-white hover:bg-slate-800"
+                    aria-label={t("removeImage")}
+                  >
+                    <X className="size-4" aria-hidden="true" />
+                  </button>
+                ) : null}
               </>
             ) : (
               <>
-                <ImagePlus className="mb-3 size-8 text-blue-400" />
+                <ImagePlus className="mb-3 size-8 text-blue-400" aria-hidden="true" />
                 <p className="text-sm font-medium text-slate-100">{t("dropTitle")}</p>
                 <p className="mt-1 px-4 text-center text-xs text-slate-500">
                   {t("dropHint")}
@@ -138,12 +149,20 @@ export function HeroSearch({
               className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-br from-blue-600 to-emerald-500 px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-blue-600/25 transition hover:brightness-110 disabled:cursor-wait disabled:opacity-80"
             >
               {loading ? (
-                <Loader2 className="size-4 animate-spin" />
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
               ) : (
-                <Sparkles className="size-4" />
+                <Sparkles className="size-4" aria-hidden="true" />
               )}
               {loading ? t("analyzing") : t("analyze")}
             </button>
+            {error ? (
+              <div
+                role="alert"
+                className="rounded-2xl border border-rose-400/40 bg-rose-500/15 px-4 py-3 text-sm leading-relaxed text-rose-100"
+              >
+                {error}
+              </div>
+            ) : null}
           </div>
         </form>
       </div>
