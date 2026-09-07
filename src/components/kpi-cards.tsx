@@ -65,6 +65,11 @@ export function KpiCards({ analysis }: { analysis: AnalysisResult }) {
           {t("analysisFor")}{" "}
           <span className="font-medium text-white">{analysis.productName}</span>
           <span className="text-slate-500"> · {analysis.brand}</span>
+          {analysis.estimatedRetailIls > 0 ? (
+            <span className="mt-1 block text-slate-300">
+              {t("estimatedRetail")}: {formatIls(analysis.estimatedRetailIls, locale)}
+            </span>
+          ) : null}
         </h2>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

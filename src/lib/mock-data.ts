@@ -1,3 +1,4 @@
+import { buildMarketplaceSearchLinks } from "./marketplace-links";
 import type { AnalysisResult, Locale } from "./types";
 
 function hashString(value: string): number {
@@ -133,21 +134,6 @@ export function resolveCategoryKind(
   return "general";
 }
 
-function productSearchUrls(query: string) {
-  const q = encodeURIComponent(query);
-  return {
-    ksp: `https://www.ksp.co.il/web/cat/0/?search=${q}`,
-    ivory: `https://www.ivory.co.il/catalog.php?act=cat&q=${q}`,
-    amazon: `https://www.amazon.com/s?k=${q}`,
-    amazonIl: `https://www.amazon.co.il/s?k=${q}`,
-    alibaba: `https://www.alibaba.com/trade/search?SearchText=${q}`,
-    decathlon: `https://www.decathlon.co.il/search?q=${q}`,
-    lametayel: `https://www.lametayel.co.il/search?q=${q}`,
-    shufersal: `https://www.shufersal.co.il/online/he/search?text=${q}`,
-    mahsanei: `https://www.mhashmal.co.il/search?q=${q}`,
-  };
-}
-
 export function buildAnalysis(
   query: string,
   locale: Locale,
@@ -157,7 +143,7 @@ export function buildAnalysis(
   const h = hashString(q.toLowerCase());
   const { productName, brand } = splitName(q);
   const kind = resolveCategoryKind(productName, overrides.category);
-  const links = productSearchUrls(productName);
+  const { localStores, suppliers } = buildMarketplaceSearchLinks(productName);
   const months = locale === "he" ? MONTHS_HE : MONTHS_EN;
   const start = new Date(2023, 8, 1);
 
@@ -200,13 +186,12 @@ export function buildAnalysis(
   const vatRatePercent = 18;
   const vatIls = (cifIls + customsIls + localFeesIls) * (vatRatePercent / 100);
   const landed = cifIls + customsIls + localFeesIls + vatIls;
-  const retailMultiplier =
-    kind === "outdoor" ? seeded(h, 1.8, 3.4, 15) : seeded(h, 1.35, 1.95, 15);
-  const targetRetailIls =
+  const estimatedRetailIls =
     overrides.estimatedRetailIls && overrides.estimatedRetailIls > 0
       ? Math.round(overrides.estimatedRetailIls)
-      : Math.round(landed * retailMultiplier);
-  const estimatedRoiPercent = ((targetRetailIls - landed) / landed) * 100;
+      : 0;
+  const estimatedRoiPercent =
+    estimatedRetailIls > 0 ? ((estimatedRetailIls - landed) / landed) * 100 : 0;
   const activeImportersCount = Math.round(seeded(h, 7, 34, 21));
 
   const defaultHs =
@@ -215,176 +200,6 @@ export function buildAnalysis(
       : kind === "electronics"
         ? `85${String(h).slice(0, 6).padStart(6, "0")}`
         : `94${String(h).slice(0, 6).padStart(6, "0")}`;
-
-  const localStores =
-    kind === "outdoor"
-      ? [
-          {
-            id: "r1",
-            name: "Decathlon",
-            city: locale === "he" ? "ראשון לציון" : "Rishon LeZion",
-            priceIls: targetRetailIls,
-            stock: "in_stock" as const,
-            channel: locale === "he" ? "רשת חוץ" : "Outdoor chain",
-            url: links.decathlon,
-          },
-          {
-            id: "r2",
-            name: locale === "he" ? "למטייל" : "Lametayel",
-            city: locale === "he" ? "תל אביב" : "Tel Aviv",
-            priceIls: Math.round(targetRetailIls * 1.06),
-            stock: "low" as const,
-            channel: locale === "he" ? "טיולים" : "Travel retail",
-            url: links.lametayel,
-          },
-          {
-            id: "r3",
-            name: "Amazon.co.il",
-            city: locale === "he" ? "משלוח ארצי" : "Nationwide",
-            priceIls: Math.round(targetRetailIls * 0.95),
-            stock: "in_stock" as const,
-            channel: locale === "he" ? "אונליין" : "Online",
-            url: links.amazonIl,
-          },
-          {
-            id: "r4",
-            name: "KSP",
-            city: locale === "he" ? "פתח תקווה" : "Petah Tikva",
-            priceIls: Math.round(targetRetailIls * 1.12),
-            stock: "out" as const,
-            channel: locale === "he" ? "רשת" : "Chain",
-            url: links.ksp,
-          },
-          {
-            id: "r5",
-            name: "Amazon.com",
-            city: locale === "he" ? "יבוא אישי" : "Personal import",
-            priceIls: Math.round(targetRetailIls * 0.88),
-            stock: "in_stock" as const,
-            channel: locale === "he" ? "אונליין" : "Online",
-            url: links.amazon,
-          },
-        ]
-      : [
-          {
-            id: "r1",
-            name: "KSP",
-            city: locale === "he" ? "פתח תקווה" : "Petah Tikva",
-            priceIls: targetRetailIls,
-            stock: "in_stock" as const,
-            channel: locale === "he" ? "רשת" : "Chain",
-            url: links.ksp,
-          },
-          {
-            id: "r2",
-            name: locale === "he" ? "אייבורי" : "Ivory",
-            city: locale === "he" ? "ראשון לציון" : "Rishon LeZion",
-            priceIls: Math.round(targetRetailIls * 1.04),
-            stock: "low" as const,
-            channel: locale === "he" ? "רשת" : "Chain",
-            url: links.ivory,
-          },
-          {
-            id: "r3",
-            name: "Amazon.co.il",
-            city: locale === "he" ? "משלוח ארצי" : "Nationwide",
-            priceIls: Math.round(targetRetailIls * 0.97),
-            stock: "in_stock" as const,
-            channel: locale === "he" ? "אונליין" : "Online",
-            url: links.amazonIl,
-          },
-          {
-            id: "r4",
-            name: locale === "he" ? "שופרסל" : "Shufersal",
-            city: locale === "he" ? "תל אביב" : "Tel Aviv",
-            priceIls: Math.round(targetRetailIls * 1.08),
-            stock: "out" as const,
-            channel: locale === "he" ? "סופר" : "Grocery",
-            url: links.shufersal,
-          },
-          {
-            id: "r5",
-            name: locale === "he" ? "מחסני חשמל" : "Mahsanei Hashmal",
-            city: locale === "he" ? "חיפה" : "Haifa",
-            priceIls: Math.round(targetRetailIls * 1.02),
-            stock: "in_stock" as const,
-            channel: locale === "he" ? "רשת" : "Chain",
-            url: links.mahsanei,
-          },
-        ];
-
-  const suppliers =
-    kind === "outdoor"
-      ? [
-          {
-            id: "s1",
-            name: "Ningbo CampTex Outdoor Co.",
-            country: locale === "he" ? "סין" : "China",
-            fobUsd: estimatedFobUsd,
-            moq: Math.round(seeded(h, 200, 800, 31) / 50) * 50,
-            leadDays: Math.round(seeded(h, 18, 40, 32)),
-            email: "export@camptex-nb.com",
-            verified: true,
-            url: links.alibaba,
-          },
-          {
-            id: "s2",
-            name: "Hangzhou Trail Weave Ltd.",
-            country: locale === "he" ? "סין" : "China",
-            fobUsd: Math.round(estimatedFobUsd * 0.9),
-            moq: Math.round(seeded(h, 300, 1200, 33) / 50) * 50,
-            leadDays: Math.round(seeded(h, 22, 45, 34)),
-            email: "sales@trailweave.cn",
-            verified: true,
-            url: `${links.alibaba}&indexArea=product_en`,
-          },
-          {
-            id: "s3",
-            name: "Portable Comfort Factory",
-            country: locale === "he" ? "וייטנאם" : "Vietnam",
-            fobUsd: Math.round(estimatedFobUsd * 1.05),
-            moq: Math.round(seeded(h, 100, 500, 35) / 25) * 25,
-            leadDays: Math.round(seeded(h, 16, 35, 36)),
-            email: "trade@portable-comfort.vn",
-            verified: true,
-            url: links.alibaba,
-          },
-        ]
-      : [
-          {
-            id: "s1",
-            name: "Shenzhen Apex OEM Ltd.",
-            country: locale === "he" ? "סין" : "China",
-            fobUsd: estimatedFobUsd,
-            moq: Math.round(seeded(h, 200, 1000, 31) / 50) * 50,
-            leadDays: Math.round(seeded(h, 18, 45, 32)),
-            email: "sales@apex-oem.cn",
-            verified: true,
-            url: links.alibaba,
-          },
-          {
-            id: "s2",
-            name: "Ningbo Harbor Components",
-            country: locale === "he" ? "סין" : "China",
-            fobUsd: Math.round(estimatedFobUsd * 0.92),
-            moq: Math.round(seeded(h, 500, 2000, 33) / 100) * 100,
-            leadDays: Math.round(seeded(h, 25, 55, 34)),
-            email: "export@nhc-global.com",
-            verified: true,
-            url: links.alibaba,
-          },
-          {
-            id: "s3",
-            name: "GDK Electronics GmbH",
-            country: locale === "he" ? "גרמניה" : "Germany",
-            fobUsd: Math.round(estimatedFobUsd * 1.18),
-            moq: Math.round(seeded(h, 50, 300, 35) / 10) * 10,
-            leadDays: Math.round(seeded(h, 12, 28, 36)),
-            email: "trade@gdk-electronics.de",
-            verified: true,
-            url: links.amazon,
-          },
-        ];
 
   const freightSpecialty =
     kind === "outdoor"
@@ -404,6 +219,7 @@ export function buildAnalysis(
       overrides.origin?.trim() ||
       (locale === "he" ? "סין / האיחוד האירופי" : "China / EU"),
     estimatedFobUsd,
+    estimatedRetailIls,
     customsRatePercent,
     activeImportersCount,
     estimatedRoiPercent,
@@ -447,7 +263,7 @@ export function buildAnalysis(
       freightUsd,
       customsPct: customsRatePercent,
       localFeesIls,
-      targetRetailIls,
+      targetRetailIls: estimatedRetailIls,
       usdIls,
     },
   };

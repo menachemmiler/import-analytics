@@ -211,13 +211,14 @@ export async function identifyProductWithGemini(input: {
     }
 
     const image = normalizeImagePayload(input.imageBase64, input.imageMimeType);
-    if (!image) {
-      console.error("[Vision API Error]:", "Image payload could not be parsed as base64");
+    const textHint = input.productName?.trim() || "";
+    if (!image && !textHint) {
+      console.error("[Vision API Error]:", "Product name or image is required");
       return empty;
     }
 
     const locale = input.locale;
-    const prompt = `Identify the product in this photo for Israel import planning.
+    const prompt = `${image ? "Identify the product in this photo" : `Identify this product from the name "${textHint}"`} for Israel import planning.
 Return JSON only with:
 {
   "productName": "specific consumer product name in locale ${locale}",
@@ -229,18 +230,19 @@ Return JSON only with:
   "origin": "likely origin country",
   "viabilityNotes": "1-2 sentences in locale ${locale}"
 }
+estimatedRetailIls must be a single typical/average Israeli shelf price in shekels for this product (not a list of store prices).
 Use realistic prices for THAT category (hammock/camping textile FOB often $8–40, Israeli retail often ₪80–350; do not use vacuum/electronics prices).
-Text hint: ${input.productName?.trim() || "(none)"}.`;
+Text hint: ${textHint || "(none)"}.`;
 
-    const parts: Array<Record<string, unknown>> = [
-      { text: prompt },
-      {
+    const parts: Array<Record<string, unknown>> = [{ text: prompt }];
+    if (image) {
+      parts.push({
         inline_data: {
           mime_type: image.mimeType,
           data: image.base64,
         },
-      },
-    ];
+      });
+    }
 
     for (const model of GEMINI_MODELS) {
       const text = await generateWithModel(model, apiKey, parts);

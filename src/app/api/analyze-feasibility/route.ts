@@ -5,7 +5,6 @@ import {
   normalizeImagePayload,
   type GeminiVisionResult,
 } from "@/lib/gemini-vision";
-import { fetchGoogleSearchLink, googleSearchFallbackUrl } from "@/lib/google-search";
 import { buildAnalysis } from "@/lib/mock-data";
 import {
   IMAGE_RECOGNITION_FAILED,
@@ -138,65 +137,40 @@ function buildVisionAnalysis(
   return result;
 }
 
-function supplierSearchQuery(productName: string, supplierName: string): string {
-  return `${productName} ${supplierName} site:alibaba.com/product-detail`;
-}
-
-function competitorSearchQuery(productName: string, storeName: string): string {
-  return `${productName} ${storeName} site:zap.co.il`;
-}
-
-async function enrichDirectLink(query: string): Promise<string> {
-  try {
-    const live = await fetchGoogleSearchLink(query);
-    return live ?? googleSearchFallbackUrl(query);
-  } catch (err) {
-    console.error("[Google Search Error]:", err);
-    return googleSearchFallbackUrl(query);
-  }
-}
-
-async function attachDirectProductUrls(
-  result: FeasibilitySuccessResponse,
-): Promise<FeasibilitySuccessResponse> {
-  if (!result.dashboard) return result;
-
-  const productName = result.productName;
-  const [localStores, suppliers] = await Promise.all([
-    Promise.all(
-      result.dashboard.localStores.map(async (store) => {
-        const query = competitorSearchQuery(productName, store.name);
-        const directLink = await enrichDirectLink(query);
-        return { ...store, directLink, url: directLink };
-      }),
-    ),
-    Promise.all(
-      result.dashboard.suppliers.map(async (supplier) => {
-        const query = supplierSearchQuery(productName, supplier.name);
-        const directLink = await enrichDirectLink(query);
-        return { ...supplier, directLink, url: directLink };
-      }),
-    ),
-  ]);
-
-  return {
-    ...result,
-    dashboard: {
-      ...result.dashboard,
-      localStores,
-      suppliers,
-    },
-  };
-}
-
 function logFinalAnalysis(result: FeasibilitySuccessResponse) {
   console.log("[Feasibility API] Final Analysis Generated:", {
     detectedProduct: result.productName,
     category: result.category,
     hsCode: result.dashboard?.hsCode ?? null,
     estimatedFobPrice: result.dashboard?.estimatedFobUsd ?? null,
-    targetStoresCount: result.dashboard?.localStores.length ?? 0,
+    estimatedRetailIls: result.dashboard?.estimatedRetailIls ?? null,
+    localSearch: result.dashboard?.localStores[0]?.url ?? null,
+    supplierSearchCount: result.dashboard?.suppliers.length ?? 0,
   });
+}
+
+async function analyzeTextQuery(
+  parsed: FeasibilityRequest,
+  locale: Locale,
+  textQuery: string,
+): Promise<FeasibilitySuccessResponse> {
+  try {
+    const lookup = await identifyProductWithGemini({
+      productName: textQuery,
+      locale,
+    });
+    console.log("[Feasibility API] Text Gemini Execution:", {
+      detectedProduct: lookup.result?.productName ?? null,
+      rawResponse: lookup.rawText,
+    });
+    if (lookup.result) {
+      return buildVisionAnalysis(parsed, locale, lookup.result);
+    }
+  } catch (err) {
+    console.error("[Vision API Error]:", err);
+  }
+
+  return buildTextAnalysis(parsed, locale, textQuery);
 }
 
 export async function POST(request: Request) {
@@ -244,9 +218,7 @@ export async function POST(request: Request) {
       }
 
       if (visionResult) {
-        const result = await attachDirectProductUrls(
-          buildVisionAnalysis(parsed, locale, visionResult),
-        );
+        const result = buildVisionAnalysis(parsed, locale, visionResult);
         logFinalAnalysis(result);
         return NextResponse.json(result);
       }
@@ -256,9 +228,7 @@ export async function POST(request: Request) {
           "[Feasibility API] Vision failed; falling back to text query:",
           textQuery,
         );
-        const result = await attachDirectProductUrls(
-          buildTextAnalysis(parsed, locale, textQuery),
-        );
+        const result = await analyzeTextQuery(parsed, locale, textQuery);
         logFinalAnalysis(result);
         return NextResponse.json(result);
       }
@@ -267,17 +237,12 @@ export async function POST(request: Request) {
     }
 
     if (textQuery) {
-      const result = await attachDirectProductUrls(
-        buildTextAnalysis(parsed, locale, textQuery),
-      );
+      const result = await analyzeTextQuery(parsed, locale, textQuery);
       logFinalAnalysis(result);
       return NextResponse.json(result);
     }
 
-    return NextResponse.json(
-      { error: "QUERY_REQUIRED" },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "QUERY_REQUIRED" }, { status: 400 });
   } catch (err) {
     console.error("[Vision API Error]:", err);
     return NextResponse.json(

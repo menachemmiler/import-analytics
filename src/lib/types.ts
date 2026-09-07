@@ -8,28 +8,11 @@ export type UserSession = {
 
 export type StockStatus = "in_stock" | "low" | "out";
 
-export type LocalStore = {
+export type MarketSearchLink = {
   id: string;
   name: string;
-  city: string;
-  priceIls: number;
-  stock: StockStatus;
-  channel: string;
+  description: string;
   url: string;
-  directLink?: string;
-};
-
-export type Supplier = {
-  id: string;
-  name: string;
-  country: string;
-  fobUsd: number;
-  moq: number;
-  leadDays: number;
-  email: string;
-  verified: boolean;
-  url: string;
-  directLink?: string;
 };
 
 export type FreightForwarder = {
@@ -59,6 +42,7 @@ export type AnalysisResult = {
   hsCode: string;
   origin: string;
   estimatedFobUsd: number;
+  estimatedRetailIls: number;
   customsRatePercent: number;
   activeImportersCount: number;
   estimatedRoiPercent: number;
@@ -67,8 +51,8 @@ export type AnalysisResult = {
   customsIls: number;
   vatIls: number;
   vatRatePercent: number;
-  localStores: LocalStore[];
-  suppliers: Supplier[];
+  localStores: MarketSearchLink[];
+  suppliers: MarketSearchLink[];
   freightForwarders: FreightForwarder[];
   importTrend: MonthlyVolume[];
   imageUrl: string;
