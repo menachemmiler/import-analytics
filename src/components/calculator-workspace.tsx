@@ -10,25 +10,14 @@ import {
 import { CostBreakdownChart } from "@/components/charts-panel";
 import { Faq } from "@/components/faq";
 import { useLanguage } from "@/components/language-provider";
-import type { UserSession } from "@/lib/types";
 
 export function CalculatorWorkspace() {
-  const { t, locale } = useLanguage();
+  const { t } = useLanguage();
   const [inputs, setInputs] = useState<CalcInputs>(defaultCalcInputs);
-  const [user, setUser] = useState<UserSession | null>(null);
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
-      <Header
-        user={user}
-        onSignIn={() =>
-          setUser({
-            name: locale === "he" ? "משתמש Google" : "Google User",
-            email: "importer@gmail.com",
-          })
-        }
-        onSignOut={() => setUser(null)}
-      />
+      <Header />
       <main id="main" className="flex-1 pb-16">
         <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
           <div className="grid gap-6 xl:grid-cols-2">

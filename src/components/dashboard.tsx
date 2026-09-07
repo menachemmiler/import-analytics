@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { GeneralInfo } from "@/components/general-info";
 import { Header } from "@/components/header";
 import { HeroSearch } from "@/components/hero-search";
 import { KpiCards } from "@/components/kpi-cards";
@@ -13,8 +14,8 @@ import { CostBreakdownChart } from "@/components/charts-panel";
 import { MarketTabs } from "@/components/market-tabs";
 import { Faq } from "@/components/faq";
 import { useLanguage } from "@/components/language-provider";
-import type { AnalysisResult, UserSession } from "@/lib/types";
-import type { FeasibilityApiResponse } from "@/lib/fx";
+import type { AnalysisResult } from "@/lib/types";
+import { AI_OVERLOADED, type FeasibilityApiResponse } from "@/lib/fx";
 
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -32,9 +33,9 @@ function DashboardPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [aiOverloaded, setAiOverloaded] = useState(false);
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [inputs, setInputs] = useState<CalcInputs>(defaultCalcInputs);
-  const [user, setUser] = useState<UserSession | null>(null);
 
   useEffect(() => {
     if (!file) {
@@ -49,6 +50,7 @@ function DashboardPage() {
   const runAnalysis = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setAiOverloaded(false);
     try {
       const imageDataUrl = file ? await fileToDataUrl(file) : "";
       const response = await fetch("/api/analyze-feasibility", {
@@ -71,6 +73,20 @@ function DashboardPage() {
         | FeasibilityApiResponse
         | { error?: string };
 
+      const overloaded =
+        (payload &&
+          "success" in payload &&
+          payload.success === false &&
+          payload.error === AI_OVERLOADED) ||
+        response.status === 503;
+
+      if (overloaded) {
+        setAnalysis(null);
+        setAiOverloaded(true);
+        setError(t("aiOverloaded"));
+        return;
+      }
+
       if (!response.ok) {
         throw new Error(t("analyzeError"));
       }
@@ -90,9 +106,31 @@ function DashboardPage() {
         setQuery(identifiedName);
       }
 
+      const dashboard = payload.dashboard;
       setAnalysis({
-        ...payload.dashboard,
-        productName: identifiedName || payload.dashboard.productName,
+        ...dashboard,
+        productName: identifiedName || dashboard.productName,
+        detectedCategory:
+          dashboard.detectedCategory ||
+          payload.detectedCategory ||
+          payload.category ||
+          "",
+        isLocallyManufactured:
+          dashboard.isLocallyManufactured ??
+          payload.isLocallyManufactured ??
+          false,
+        sourceCountry: dashboard.sourceCountry ?? payload.sourceCountry ?? null,
+        estimatedRetailRangeIls:
+          dashboard.estimatedRetailRangeIls ||
+          payload.estimatedRetailRangeIls ||
+          "",
+        englishProductName:
+          dashboard.englishProductName || payload.englishProductName || "",
+        localSearch: dashboard.localSearch || payload.localSearch || "",
+        estimatedRetailIls: dashboard.estimatedRetailIls,
+        estimatedSourceRetailRangeIls: dashboard.estimatedSourceRetailRangeIls,
+        supplierChannel: dashboard.supplierChannel,
+        supplierNotice: dashboard.supplierNotice,
       });
       setInputs({
         purchaseUsd: payload.dashboard.defaults.purchaseUsd,
@@ -124,23 +162,14 @@ function DashboardPage() {
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
-      <Header
-        user={user}
-        onSignIn={() =>
-          setUser({
-            name: locale === "he" ? "משתמש Google" : "Google User",
-            email: "importer@gmail.com",
-          })
-        }
-        onSignOut={() => setUser(null)}
-      />
+      <Header />
       <main id="main" className="flex-1 pb-16">
         <HeroSearch
           query={query}
           onQueryChange={setQuery}
-          imageUrl={previewUrl ?? analysis?.imageUrl ?? null}
+          imageUrl={previewUrl}
           productName={analysis?.productName ?? query}
-          imageLoading={loading}
+          imageLoading={loading && Boolean(previewUrl)}
           onFile={setFile}
           canClear={Boolean(file)}
           loading={loading}
@@ -150,12 +179,24 @@ function DashboardPage() {
           }}
         />
 
-        {analysis && (
+        {aiOverloaded ? (
+          <GeneralInfo
+            analysis={null}
+            overloaded
+            loading={loading}
+            onRetry={() => {
+              void runAnalysis();
+            }}
+          />
+        ) : null}
+
+        {analysis && !aiOverloaded ? (
           <article className="space-y-10">
+            <GeneralInfo analysis={analysis} />
             <KpiCards
               analysis={{
                 ...analysis,
-                imageUrl: previewUrl ?? analysis.imageUrl,
+                imageUrl: previewUrl,
               }}
             />
             <div className="mx-auto grid max-w-7xl gap-6 px-4 sm:px-6 xl:grid-cols-2">
@@ -168,7 +209,7 @@ function DashboardPage() {
             </div>
             <MarketTabs analysis={analysis} />
           </article>
-        )}
+        ) : null}
         <Faq />
       </main>
       <footer className="border-t border-white/10 py-6 text-center text-xs text-slate-500">

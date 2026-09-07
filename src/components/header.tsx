@@ -1,7 +1,9 @@
+"use client";
+
 import Link from "next/link";
+import { signIn, signOut, useSession } from "next-auth/react";
 import { Globe, LayoutDashboard, LogOut } from "lucide-react";
 import { cn } from "@/lib/cn";
-import type { UserSession } from "@/lib/types";
 import { useLanguage } from "./language-provider";
 
 function GoogleMark() {
@@ -33,14 +35,10 @@ function GoogleMark() {
   );
 }
 
-type HeaderProps = {
-  user: UserSession | null;
-  onSignIn: () => void;
-  onSignOut: () => void;
-};
-
-export function Header({ user, onSignIn, onSignOut }: HeaderProps) {
+export function Header() {
   const { t, locale, setLocale, dir } = useLanguage();
+  const { data: session, status } = useSession();
+  const user = status === "authenticated" ? session?.user : null;
 
   const nav = [
     { href: "/#dashboard", label: t("navDashboard") },
@@ -122,21 +120,36 @@ export function Header({ user, onSignIn, onSignOut }: HeaderProps) {
             </button>
           </div>
 
-          {user ? (
+          {status === "loading" ? (
+            <span
+              className="inline-flex h-9 w-28 animate-pulse rounded-full bg-white/10"
+              aria-hidden="true"
+            />
+          ) : user ? (
             <div className="flex items-center gap-2 rounded-full border border-white/10 bg-slate-900 py-1 ps-1 pe-2">
-              <span className="flex size-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-400 to-emerald-400 text-xs font-bold text-slate-950">
-                {user.name
-                  .split(" ")
-                  .map((p) => p[0])
-                  .slice(0, 2)
-                  .join("")}
-              </span>
+              {user.image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={user.image}
+                  alt=""
+                  className="size-8 rounded-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <span className="flex size-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-400 to-emerald-400 text-xs font-bold text-slate-950">
+                  {(user.name ?? user.email ?? "?")
+                    .split(" ")
+                    .map((p) => p[0])
+                    .slice(0, 2)
+                    .join("")}
+                </span>
+              )}
               <span className="hidden max-w-[9rem] truncate text-xs text-slate-200 sm:block">
-                {user.name}
+                {user.name ?? user.email}
               </span>
               <button
                 type="button"
-                onClick={onSignOut}
+                onClick={() => void signOut()}
                 className="rounded-full p-1.5 text-slate-400 hover:bg-white/5 hover:text-white"
                 aria-label={t("signOut")}
                 title={t("signOut")}
@@ -147,7 +160,7 @@ export function Header({ user, onSignIn, onSignOut }: HeaderProps) {
           ) : (
             <button
               type="button"
-              onClick={onSignIn}
+              onClick={() => void signIn("google")}
               className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm font-medium text-slate-900 shadow-lg shadow-white/10 transition hover:bg-slate-100"
               style={{ direction: "ltr" }}
             >

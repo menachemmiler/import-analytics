@@ -14,6 +14,7 @@ import type {
   FeasibilityRating,
   ShippingType,
 } from "@/lib/fx";
+import { AI_OVERLOADED } from "@/lib/fx";
 import { useLanguage } from "./language-provider";
 
 export type { CalcInputs };
@@ -157,6 +158,16 @@ export function Calculator({
       const payload = (await response.json()) as
         | FeasibilityApiResponse
         | { error?: string };
+      if (
+        response.status === 503 ||
+        ("success" in payload &&
+          payload.success === false &&
+          payload.error === AI_OVERLOADED)
+      ) {
+        setAiResult(null);
+        setAiError(t("aiOverloaded"));
+        return;
+      }
       if (!response.ok) {
         throw new Error(
           payload && "error" in payload && payload.error

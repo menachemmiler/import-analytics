@@ -20,7 +20,11 @@ type TabId = "stores" | "suppliers" | "freight" | "trends";
 function searchCopyKey(id: string): CopyKey {
   if (id === "alibaba") return "searchAlibaba";
   if (id === "made-in-china") return "searchMadeInChina";
-  return "searchZap";
+  if (id === "global-sources") return "searchGlobalSources";
+  if (id === "israel-industrial") return "searchIsraelIndustrial";
+  if (id === "dunsguide") return "searchDunsGuide";
+  if (id === "google-il") return "searchLocalGoogle";
+  return "searchLocalGoogle";
 }
 
 function SearchShortcutCard({ row }: { row: MarketSearchLink }) {
@@ -90,15 +94,34 @@ export function MarketTabs({ analysis }: { analysis: AnalysisResult }) {
       <div className="mt-5">
         {tab === "stores" && (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {analysis.estimatedRetailIls > 0 && (
+            {analysis.estimatedRetailRangeIls || analysis.estimatedRetailIls > 0 ? (
               <article className="rounded-2xl border border-white/10 bg-slate-950/70 p-4 md:col-span-2 xl:col-span-3">
                 <p className="text-[11px] text-slate-500">{t("estimatedRetail")}</p>
                 <p className="mt-1 text-2xl font-semibold text-white">
-                  {formatIls(analysis.estimatedRetailIls, locale)}
+                  {analysis.estimatedRetailRangeIls ||
+                    formatIls(analysis.estimatedRetailIls, locale)}
                 </p>
-                <p className="mt-2 text-xs text-slate-400">{t("retailersLead")}</p>
+                {analysis.isLocallyManufactured ? (
+                  <p className="mt-2 text-xs font-medium text-emerald-300">
+                    {t("locallyManufactured")}
+                  </p>
+                ) : analysis.sourceCountry &&
+                  analysis.estimatedSourceRetailRangeIls &&
+                  analysis.estimatedSourceRetailRangeIls !== "N/A" ? (
+                  <p className="mt-3 text-sm text-slate-300">
+                    {t("sourceMarketPrice")} ({analysis.sourceCountry}):{" "}
+                    {analysis.estimatedSourceRetailRangeIls}
+                  </p>
+                ) : (
+                  <p className="mt-3 text-xs text-slate-500">
+                    {t("sourceCountryUnknown")}
+                  </p>
+                )}
+                <p className="mt-2 text-xs text-slate-400">
+                  {t("estimatedRetailBaseline")} · {t("retailersLead")}
+                </p>
               </article>
-            )}
+            ) : null}
             {analysis.localStores.map((row) => (
               <SearchShortcutCard key={row.id} row={row} />
             ))}
@@ -107,6 +130,11 @@ export function MarketTabs({ analysis }: { analysis: AnalysisResult }) {
 
         {tab === "suppliers" && (
           <div className="grid gap-3 lg:grid-cols-2">
+            {analysis.supplierChannel === "local-industrial" && analysis.supplierNotice ? (
+              <p className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-4 text-sm text-emerald-100 lg:col-span-2">
+                {analysis.supplierNotice}
+              </p>
+            ) : null}
             {analysis.suppliers.map((row) => (
               <SearchShortcutCard key={row.id} row={row} />
             ))}

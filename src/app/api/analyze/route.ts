@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { STRICT_ACCURACY_RULE } from "@/lib/ai-accuracy";
 import { buildAnalysis } from "@/lib/mock-data";
 import type { AnalysisResult, Locale } from "@/lib/types";
 
@@ -39,7 +40,7 @@ async function maybeEnrichWithOpenAI(
           {
             role: "system",
             content:
-              "You estimate Israel import feasibility. Reply with JSON only: { hsCode, origin, customsRatePercent, estimatedFobUsd }.",
+              `${STRICT_ACCURACY_RULE} You estimate Israel import feasibility. Reply with JSON only: { hsCode, origin, sourceCountry, customsRatePercent, estimatedFobUsd }. Use N/A or null when unknown. Do not invent China as origin.`,
           },
           {
             role: "user",

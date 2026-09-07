@@ -8,6 +8,8 @@ export type UserSession = {
 
 export type StockStatus = "in_stock" | "low" | "out";
 
+export type SupplierChannel = "local-industrial" | "global";
+
 export type MarketSearchLink = {
   id: string;
   name: string;
@@ -41,8 +43,20 @@ export type AnalysisResult = {
   brand: string;
   hsCode: string;
   origin: string;
+  category: string;
+  detectedCategory: string;
+  detectedCategoryEn: string;
+  englishProductName: string;
+  sourceCountry: string | null;
+  isLocallyManufactured: boolean;
   estimatedFobUsd: number;
   estimatedRetailIls: number;
+  estimatedRetailIlsMin: number;
+  estimatedRetailIlsMax: number;
+  estimatedRetailRangeIls: string;
+  estimatedSourceRetailIls: number;
+  estimatedSourceRetailRangeIls: string;
+  priceConfidence: "low" | "medium" | "high" | "na";
   customsRatePercent: number;
   activeImportersCount: number;
   estimatedRoiPercent: number;
@@ -51,11 +65,14 @@ export type AnalysisResult = {
   customsIls: number;
   vatIls: number;
   vatRatePercent: number;
+  localSearch: string;
   localStores: MarketSearchLink[];
   suppliers: MarketSearchLink[];
+  supplierChannel: SupplierChannel;
+  supplierNotice: string;
   freightForwarders: FreightForwarder[];
   importTrend: MonthlyVolume[];
-  imageUrl: string;
+  imageUrl: string | null;
   defaults: {
     purchaseUsd: number;
     freightUsd: number;

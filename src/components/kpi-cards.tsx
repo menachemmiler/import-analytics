@@ -26,7 +26,7 @@ export function KpiCards({ analysis }: { analysis: AnalysisResult }) {
     {
       label: t("kpiImporters"),
       value: formatInt(analysis.activeImportersCount, locale),
-      hint: analysis.origin,
+      hint: analysis.sourceCountry || t("sourceCountryUnknown"),
       delta: `${t("hsCode")} ${analysis.hsCode}`,
       icon: Users,
       tone: "from-emerald-500/20 to-emerald-500/5 text-emerald-300",
@@ -53,23 +53,26 @@ export function KpiCards({ analysis }: { analysis: AnalysisResult }) {
   ];
 
   return (
-    <section id="dashboard" aria-labelledby="analysis-heading" className="mx-auto max-w-7xl px-4 sm:px-6">
+    <section aria-labelledby="analysis-heading" className="mx-auto max-w-7xl px-4 sm:px-6">
       <div className="mb-4 flex items-center gap-3">
-        <ProductPhoto
-          src={analysis.imageUrl}
-          alt={analysis.productName}
-          overlay={false}
-          className="size-14 shrink-0 rounded-xl"
-        />
+        {analysis.imageUrl ? (
+          <ProductPhoto
+            src={analysis.imageUrl}
+            alt={analysis.productName}
+            overlay={false}
+            className="size-14 shrink-0 rounded-xl"
+          />
+        ) : (
+          <div
+            className="flex size-14 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-slate-900"
+            aria-hidden="true"
+          >
+            <Package className="size-6 text-slate-500" />
+          </div>
+        )}
         <h2 id="analysis-heading" className="text-sm text-slate-400">
           {t("analysisFor")}{" "}
           <span className="font-medium text-white">{analysis.productName}</span>
-          <span className="text-slate-500"> · {analysis.brand}</span>
-          {analysis.estimatedRetailIls > 0 ? (
-            <span className="mt-1 block text-slate-300">
-              {t("estimatedRetail")}: {formatIls(analysis.estimatedRetailIls, locale)}
-            </span>
-          ) : null}
         </h2>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Heebo } from "next/font/google";
+import { AuthProvider } from "@/components/auth-provider";
 import { LanguageProvider } from "@/components/language-provider";
 import {
   DEFAULT_TITLE,
@@ -78,7 +79,9 @@ export default function RootLayout({
       className={`${heebo.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-slate-900 text-slate-100">
-        <LanguageProvider>{children}</LanguageProvider>
+        <AuthProvider>
+          <LanguageProvider>{children}</LanguageProvider>
+        </AuthProvider>
       </body>
     </html>
   );

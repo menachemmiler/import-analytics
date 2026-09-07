@@ -7,6 +7,7 @@ import {
 } from "@/lib/gemini-vision";
 import { buildAnalysis } from "@/lib/mock-data";
 import {
+  AI_OVERLOADED,
   IMAGE_RECOGNITION_FAILED,
   type FeasibilityApiResponse,
   type FeasibilityRequest,
@@ -59,31 +60,30 @@ function recognitionFailed(): NextResponse<FeasibilityApiResponse> {
   });
 }
 
-function buildTextAnalysis(
-  parsed: FeasibilityRequest,
-  locale: Locale,
-  textQuery: string,
+function aiOverloaded(): NextResponse<FeasibilityApiResponse> {
+  return NextResponse.json(
+    {
+      success: false,
+      error: AI_OVERLOADED,
+    },
+    { status: 503 },
+  );
+}
+
+function attachInsightFields(
+  result: FeasibilitySuccessResponse,
 ): FeasibilitySuccessResponse {
-  const request: FeasibilityRequest = {
-    ...parsed,
-    productName: textQuery,
+  const board = result.dashboard;
+  if (!board) return result;
+  return {
+    ...result,
+    detectedCategory: board.detectedCategory || result.category,
+    isLocallyManufactured: board.isLocallyManufactured,
+    sourceCountry: board.sourceCountry,
+    estimatedRetailRangeIls: board.estimatedRetailRangeIls,
+    englishProductName: board.englishProductName,
+    localSearch: board.localSearch,
   };
-  const mock = buildMockFeasibility(request);
-  const result: FeasibilitySuccessResponse = {
-    ...mock,
-    success: true,
-    source: "mock",
-    productName: textQuery,
-    visionSource: "heuristic",
-  };
-
-  if (parsed.includeDashboard) {
-    result.dashboard = buildAnalysis(textQuery, locale, {
-      category: parsed.category,
-    });
-  }
-
-  return result;
 }
 
 function buildVisionAnalysis(
@@ -108,25 +108,51 @@ function buildVisionAnalysis(
   };
 
   const mock = buildMockFeasibility(requestWithVision);
+  const localNote = vision.isLocallyManufactured
+    ? locale === "he"
+      ? "מוצר זה מיוצר באופן מקומי בישראל. ייבוא עלול להיות פחות כדאי מול ייצור מקומי בגלל הובלה."
+      : "This product is commonly manufactured locally in Israel. Import may be less competitive than local production after freight."
+    : "";
+  const notes = [localNote, vision.viabilityNotes || mock.notes]
+    .filter(Boolean)
+    .join(" ");
+
   const result: FeasibilitySuccessResponse = {
     ...mock,
     success: true,
     source: "gemini",
     productName: vision.productName,
-    category: vision.category,
-    notes: vision.viabilityNotes || mock.notes,
+    category: vision.detectedCategory || vision.category,
+    detectedCategory: vision.detectedCategory,
+    isLocallyManufactured: vision.isLocallyManufactured,
+    sourceCountry: vision.sourceCountry,
+    estimatedRetailRangeIls: vision.estimatedRetailRangeIls,
+    englishProductName: vision.englishProductName,
+    notes,
     visionSource: "gemini",
   };
 
   if (parsed.includeDashboard) {
     result.dashboard = {
       ...buildAnalysis(vision.productName, locale, {
-        category: vision.category,
+        category: vision.detectedCategory || vision.category,
+        detectedCategory: vision.detectedCategory,
+        detectedCategoryEn: vision.detectedCategoryEn,
+        englishProductName: vision.englishProductName,
         hsCode: vision.hsCode,
         estimatedFobUsd: vision.estimatedFobUsd,
         estimatedRetailIls: vision.estimatedRetailIls,
+        estimatedRetailIlsMin: vision.estimatedRetailIlsMin,
+        estimatedRetailIlsMax: vision.estimatedRetailIlsMax,
+        estimatedRetailRangeIls: vision.estimatedRetailRangeIls,
+        estimatedSourceRetailIls: vision.estimatedSourceRetailIls,
+        estimatedSourceRetailRangeIls: vision.estimatedSourceRetailRangeIls,
         customsRatePercent: vision.customsRatePercent,
         origin: vision.origin,
+        sourceCountry: vision.sourceCountry,
+        isLocallyManufactured: vision.isLocallyManufactured,
+        priceConfidence: vision.priceConfidence,
+        imageUrl: null,
       }),
       source: "gemini+mock",
       productName: vision.productName,
@@ -134,17 +160,21 @@ function buildVisionAnalysis(
     };
   }
 
-  return result;
+  return attachInsightFields(result);
 }
 
 function logFinalAnalysis(result: FeasibilitySuccessResponse) {
   console.log("[Feasibility API] Final Analysis Generated:", {
     detectedProduct: result.productName,
     category: result.category,
+    detectedCategory: result.dashboard?.detectedCategory ?? null,
+    sourceCountry: result.dashboard?.sourceCountry ?? null,
+    isLocallyManufactured: result.dashboard?.isLocallyManufactured ?? false,
     hsCode: result.dashboard?.hsCode ?? null,
     estimatedFobPrice: result.dashboard?.estimatedFobUsd ?? null,
-    estimatedRetailIls: result.dashboard?.estimatedRetailIls ?? null,
-    localSearch: result.dashboard?.localStores[0]?.url ?? null,
+    estimatedRetailIls: result.dashboard?.estimatedRetailRangeIls ?? null,
+    englishProductName: result.dashboard?.englishProductName ?? null,
+    localSearch: result.dashboard?.localSearch ?? null,
     supplierSearchCount: result.dashboard?.suppliers.length ?? 0,
   });
 }
@@ -153,7 +183,7 @@ async function analyzeTextQuery(
   parsed: FeasibilityRequest,
   locale: Locale,
   textQuery: string,
-): Promise<FeasibilitySuccessResponse> {
+): Promise<FeasibilitySuccessResponse | "overloaded"> {
   try {
     const lookup = await identifyProductWithGemini({
       productName: textQuery,
@@ -162,15 +192,16 @@ async function analyzeTextQuery(
     console.log("[Feasibility API] Text Gemini Execution:", {
       detectedProduct: lookup.result?.productName ?? null,
       rawResponse: lookup.rawText,
+      overloaded: lookup.overloaded ?? false,
     });
     if (lookup.result) {
       return buildVisionAnalysis(parsed, locale, lookup.result);
     }
+    return "overloaded";
   } catch (err) {
     console.error("[Vision API Error]:", err);
+    return "overloaded";
   }
-
-  return buildTextAnalysis(parsed, locale, textQuery);
 }
 
 export async function POST(request: Request) {
@@ -206,7 +237,11 @@ export async function POST(request: Request) {
           console.log("[Feasibility API] Vision Execution:", {
             detectedProduct: visionResult?.productName ?? null,
             rawResponse: rawText,
+            overloaded: lookup.overloaded ?? false,
           });
+          if (!visionResult && lookup.overloaded) {
+            return aiOverloaded();
+          }
         } catch (err) {
           console.error("[Vision API Error]:", err);
         }
@@ -229,6 +264,9 @@ export async function POST(request: Request) {
           textQuery,
         );
         const result = await analyzeTextQuery(parsed, locale, textQuery);
+        if (result === "overloaded") {
+          return aiOverloaded();
+        }
         logFinalAnalysis(result);
         return NextResponse.json(result);
       }
@@ -238,6 +276,9 @@ export async function POST(request: Request) {
 
     if (textQuery) {
       const result = await analyzeTextQuery(parsed, locale, textQuery);
+      if (result === "overloaded") {
+        return aiOverloaded();
+      }
       logFinalAnalysis(result);
       return NextResponse.json(result);
     }

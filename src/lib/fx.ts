@@ -40,14 +40,21 @@ export type FeasibilityAnalysis = {
 };
 
 export const IMAGE_RECOGNITION_FAILED = "IMAGE_RECOGNITION_FAILED" as const;
+export const AI_OVERLOADED = "AI_OVERLOADED" as const;
 
 export type FeasibilityErrorResponse = {
   success: false;
-  error: typeof IMAGE_RECOGNITION_FAILED;
+  error: typeof IMAGE_RECOGNITION_FAILED | typeof AI_OVERLOADED;
 };
 
 export type FeasibilitySuccessResponse = FeasibilityAnalysis & {
   success: true;
+  detectedCategory?: string;
+  isLocallyManufactured?: boolean;
+  sourceCountry?: string | null;
+  estimatedRetailRangeIls?: string;
+  englishProductName?: string;
+  localSearch?: string;
   dashboard?: import("@/lib/types").AnalysisResult;
 };
 

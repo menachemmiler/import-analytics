@@ -105,9 +105,21 @@ export type AnalysisOverrides = {
   hsCode?: string;
   estimatedFobUsd?: number;
   estimatedRetailIls?: number;
+  estimatedRetailIlsMin?: number;
+  estimatedRetailIlsMax?: number;
+  estimatedRetailRangeIls?: string;
   customsRatePercent?: number;
-  origin?: string;
+  origin?: string | null;
   category?: string;
+  detectedCategory?: string;
+  detectedCategoryEn?: string;
+  englishProductName?: string;
+  sourceCountry?: string | null;
+  isLocallyManufactured?: boolean;
+  estimatedSourceRetailIls?: number;
+  estimatedSourceRetailRangeIls?: string;
+  priceConfidence?: "low" | "medium" | "high" | "na";
+  imageUrl?: string | null;
 };
 
 export type ProductCategoryKind = "electronics" | "outdoor" | "general";
@@ -143,7 +155,27 @@ export function buildAnalysis(
   const h = hashString(q.toLowerCase());
   const { productName, brand } = splitName(q);
   const kind = resolveCategoryKind(productName, overrides.category);
-  const { localStores, suppliers } = buildMarketplaceSearchLinks(productName);
+  const englishProductName =
+    overrides.englishProductName?.trim() || productName;
+  const detectedCategory =
+    overrides.detectedCategory?.trim() || overrides.category?.trim() || "";
+  const detectedCategoryEn =
+    overrides.detectedCategoryEn?.trim() || overrides.category?.trim() || "";
+  const sourceCountry = overrides.sourceCountry ?? null;
+  const isLocallyManufactured = Boolean(overrides.isLocallyManufactured);
+  const { localStores, suppliers, supplierChannel, localSearch } = buildMarketplaceSearchLinks({
+    zapQuery: productName,
+    englishProductName,
+    detectedCategory,
+    detectedCategoryEn,
+    isLocallyManufactured,
+  });
+  const supplierNotice =
+    supplierChannel === "local-industrial"
+      ? locale === "he"
+        ? "מוצר זה מיוצר בעיקר זמין לרכישה ישירה ממפעלים/ספקים מקומיים בישראל."
+        : "This product is mainly available from factories and industrial suppliers in Israel."
+      : "";
   const months = locale === "he" ? MONTHS_HE : MONTHS_EN;
   const start = new Date(2023, 8, 1);
 
@@ -190,16 +222,35 @@ export function buildAnalysis(
     overrides.estimatedRetailIls && overrides.estimatedRetailIls > 0
       ? Math.round(overrides.estimatedRetailIls)
       : 0;
+  const estimatedRetailIlsMin =
+    overrides.estimatedRetailIlsMin && overrides.estimatedRetailIlsMin > 0
+      ? Math.round(overrides.estimatedRetailIlsMin)
+      : estimatedRetailIls;
+  const estimatedRetailIlsMax =
+    overrides.estimatedRetailIlsMax && overrides.estimatedRetailIlsMax > 0
+      ? Math.round(overrides.estimatedRetailIlsMax)
+      : estimatedRetailIls;
+  const estimatedRetailRangeIls =
+    overrides.estimatedRetailRangeIls?.trim() ||
+    (estimatedRetailIlsMin > 0 && estimatedRetailIlsMax > 0
+      ? `${estimatedRetailIlsMin} - ${estimatedRetailIlsMax} ILS`
+      : "");
+  const estimatedSourceRetailIls =
+    sourceCountry &&
+    overrides.estimatedSourceRetailIls &&
+    overrides.estimatedSourceRetailIls > 0
+      ? Math.round(overrides.estimatedSourceRetailIls)
+      : 0;
+  const estimatedSourceRetailRangeIls =
+    sourceCountry && overrides.estimatedSourceRetailRangeIls?.trim()
+      ? overrides.estimatedSourceRetailRangeIls.trim()
+      : "N/A";
+  const priceConfidence = overrides.priceConfidence ?? "low";
   const estimatedRoiPercent =
     estimatedRetailIls > 0 ? ((estimatedRetailIls - landed) / landed) * 100 : 0;
   const activeImportersCount = Math.round(seeded(h, 7, 34, 21));
 
-  const defaultHs =
-    kind === "outdoor"
-      ? "630690"
-      : kind === "electronics"
-        ? `85${String(h).slice(0, 6).padStart(6, "0")}`
-        : `94${String(h).slice(0, 6).padStart(6, "0")}`;
+  const defaultHs = overrides.hsCode?.trim() || "N/A";
 
   const freightSpecialty =
     kind === "outdoor"
@@ -214,12 +265,22 @@ export function buildAnalysis(
     source: "mock",
     productName,
     brand,
-    hsCode: overrides.hsCode?.trim() || defaultHs,
-    origin:
-      overrides.origin?.trim() ||
-      (locale === "he" ? "סין / האיחוד האירופי" : "China / EU"),
+    hsCode: defaultHs,
+    origin: sourceCountry || "N/A",
+    category: detectedCategory,
+    detectedCategory,
+    detectedCategoryEn,
+    englishProductName,
+    sourceCountry,
+    isLocallyManufactured,
     estimatedFobUsd,
     estimatedRetailIls,
+    estimatedRetailIlsMin,
+    estimatedRetailIlsMax,
+    estimatedRetailRangeIls,
+    estimatedSourceRetailIls,
+    estimatedSourceRetailRangeIls,
+    priceConfidence,
     customsRatePercent,
     activeImportersCount,
     estimatedRoiPercent,
@@ -228,8 +289,11 @@ export function buildAnalysis(
     customsIls: Math.round(customsIls),
     vatIls: Math.round(vatIls),
     vatRatePercent,
+    localSearch,
     localStores,
     suppliers,
+    supplierChannel,
+    supplierNotice,
     freightForwarders: [
       {
         id: "b1",
@@ -257,7 +321,7 @@ export function buildAnalysis(
       },
     ],
     importTrend,
-    imageUrl: getProductImage(productName),
+    imageUrl: overrides.imageUrl ?? null,
     defaults: {
       purchaseUsd: estimatedFobUsd,
       freightUsd,
